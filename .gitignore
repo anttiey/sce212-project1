@@ -1,0 +1,6 @@
+
+assembler
+assembler.o
+*.1
+*.2
+*.3

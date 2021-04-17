@@ -355,13 +355,49 @@ void make_symbol_table(FILE *input)
                 add_symbol(temp, address);
                 continue;
             } else {
-                if(strcmp("la", temp)) {
+
+                if (strcmp(temp, "la") == 0) {
+                    char *ptr1 = strtok(NULL, delimeter);
+                    char *ptr2 = strtok(NULL, delimeter);
+
+                    char str1[64] = {0};
+                    char str2[64] = {0};
+                    int findIdx = search_symbol(ptr2);
+                    if (findIdx > -1) {
+                        uint32_t found_address = get_symbol(findIdx).address;
+                        
+                        char str3[64] = {0};
+                        sprintf(str3, "%08x", found_address);
+                        
+                        strncpy(str1, str3, 4);
+                        strncpy(str2, &str3[4], 4);
+
+                    }
+                    
+                    fprintf(text_seg, "lui\t%s\t%s\n", ptr1, str1);
+
+                    if(strcmp(str2, "0000") != 0) {
+                        fprintf(text_seg, "ori\t%s\t%s\t%s\n", ptr1, ptr1, str2);
+                    }
 
                 } else {
-                `
+                    fprintf(text_seg, "%s", temp);
+
+                    while((temp = strtok(NULL, delimeter)) != NULL) {
+                        int findIdx = search_symbol(temp);
+                        if (findIdx > -1) {
+                            uint32_t found_address = get_symbol(findIdx).address;
+                            
+                            fprintf(text_seg, "\t0x%08x", found_address);
+                        } else {
+                            fprintf(text_seg, "\t%s", temp);
+                        }
+                    }
+
+                    fprintf(text_seg, "\n");
+                    
                 }
 
-                fprintf(text_seg, "\n");
             }
             
             text_section_size += BYTES_PER_WORD;
