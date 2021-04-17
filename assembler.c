@@ -151,6 +151,7 @@ void record_text_section(FILE *output)
         switch (type) {
             case 'R':
                 /* blank */
+
 #if DEBUG
                 printf("op:%s rs:$%d rt:$%d rd:$%d shamt:%d funct:%s\n",
                         op, rs, rt, rd, shamt, inst_list[idx].funct);
@@ -241,21 +242,25 @@ void make_symbol_table(FILE *input)
 
         /* Check section type */
         if (!strcmp(temp, ".data")) {
-            /* blank */
+            cur_section = DATA;
+            address = MEM_DATA_START;
             data_seg = tmpfile();
             continue;
         }
         else if (!strcmp(temp, ".text")) {
-            /* blank */
+            cur_section = TEXT;
+            address = MEM_TEXT_START;
             text_seg = tmpfile();
             continue;
         }
 
         /* Put the line into each segment stream */
         if (cur_section == DATA) {
+            
             /* blank */
         }
         else if (cur_section == TEXT) {
+            
             /* blank */
         }
 
