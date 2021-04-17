@@ -9,7 +9,7 @@
  * For debug option. If you want to debug, set 1.
  * If not, set 0.
  */
-#define DEBUG 0
+#define DEBUG 1
 
 #define MAX_SYMBOL_TABLE_SIZE   1024
 #define MEM_TEXT_START          0x00400000
@@ -73,14 +73,92 @@ uint32_t symbol_table_cur_index = 0; // For indexing of symbol table
 /* Temporary file stream pointers */
 FILE *data_seg;
 FILE *text_seg;
+FILE *sym_file;
 
 /* Size of each section */
 uint32_t data_section_size = 0;
 uint32_t text_section_size = 0;
 
+// ===================
+
+char* change_file_ext_2(char *str, char ext) {
+    char *dot = strrchr(str, '.');
+
+    if (!dot || dot == str || (strcmp(dot, ".s") != 0))
+        return NULL;
+
+    str[strlen(str) - 1] = ext;
+
+    return str;
+}
+
+FILE* tmpfile_2(const char*filename, char ext) {
+    char* filepath1 = strdup(filename);
+
+    char* filepaht2 = change_file_ext_2 (filepath1, ext);
+
+    FILE* file = fopen(filepaht2, "w");
+
+    return file;
+}
+
+// 
+
 /******************************************************
  * Function Declaration
  *******************************************************/
+
+int ends_with(const char *str, const char *suffix) {
+    int len = strlen(suffix);
+    int j = strlen(str) - len;
+
+    for(int i = 0; i < len; i++, j++) {
+        if (suffix[i] != str[j]) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+/* Get only symbol name */
+char *get_symbol_label(const char *name) {
+    char *ptr = strchr(name, ':');
+    if (ptr != NULL) {
+        *ptr = 0;
+    }
+    
+    return name;
+}
+
+/* Add name and address to symbol table */
+void add_symbol(const char *name, uint32_t address) {
+    char *label = get_symbol_label(name);
+    symbol_t symbol;
+    
+    strcpy(symbol.name, label);
+    symbol.address = address;
+
+    symbol_table_add_entry(symbol);
+    fprintf(sym_file, "%s\t0x%08x\n", name, address);
+}
+
+/* Search symbol */
+int search_symbol(const char *label) {
+    for (int i = 0; i < symbol_table_cur_index; i++) {
+        symbol_t symbol = SYMBOL_TABLE[i];
+
+        if (strcmp(symbol.name, label) == 0) {
+            return i;
+        }
+    }
+
+    return -1; // not found
+}
+
+symbol_t get_symbol(const int index) {
+    return SYMBOL_TABLE[index];
+}
 
 /* Change file extension from ".s" to ".o" */
 char* change_file_ext(char *str) {
@@ -232,6 +310,7 @@ void make_symbol_table(FILE *input)
     char line[1024] = {0};
     uint32_t address = 0;
     enum section cur_section = MAX_SIZE;
+    const char* delimeter = ", \t\n";
 
     /* Read each section and put the stream */
     while (fgets(line, 1024, input) != NULL) {
@@ -244,24 +323,48 @@ void make_symbol_table(FILE *input)
         if (!strcmp(temp, ".data")) {
             cur_section = DATA;
             address = MEM_DATA_START;
-            data_seg = tmpfile();
+            //data_seg = tmpfile();
             continue;
         }
         else if (!strcmp(temp, ".text")) {
             cur_section = TEXT;
             address = MEM_TEXT_START;
-            text_seg = tmpfile();
+            //text_seg = tmpfile();
             continue;
         }
 
         /* Put the line into each segment stream */
         if (cur_section == DATA) {
-            
-            /* blank */
+            if (ends_with(temp, ":")) {
+                add_symbol(temp, address);
+                temp = strtok(NULL, delimeter);
+            }
+
+            fprintf(data_seg, "%s", temp);
+
+            while ((temp = strtok(NULL, delimeter)) != NULL) {
+                fprintf(data_seg, "\t%s", temp);
+            }
+
+            fprintf(data_seg, "\n");
+
+            data_section_size += BYTES_PER_WORD;
         }
         else if (cur_section == TEXT) {
+            if (ends_with(temp, ":")) {
+                add_symbol(temp, address);
+                continue;
+            } else {
+                if(strcmp("la", temp)) {
+
+                } else {
+                `
+                }
+
+                fprintf(text_seg, "\n");
+            }
             
-            /* blank */
+            text_section_size += BYTES_PER_WORD;
         }
 
         address += BYTES_PER_WORD;
@@ -320,6 +423,10 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    sym_file = tmpfile_2(argv[1], '1');
+    data_seg = tmpfile_2(argv[1], '2');
+    text_seg = tmpfile_2(argv[1], '3');
+
     /******************************************************
      *  Let's complete the below functions!
      *
@@ -334,6 +441,10 @@ int main(int argc, char* argv[])
 
     fclose(input);
     fclose(output);
+
+    fclose(sym_file);
+    fclose(data_seg);
+    fclose(text_seg);
 
     return 0;
 }
