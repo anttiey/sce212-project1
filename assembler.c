@@ -97,7 +97,7 @@ FILE* tmpfile_2(const char*filename, char ext) {
 
     char* filepaht2 = change_file_ext_2 (filepath1, ext);
 
-    FILE* file = fopen(filepaht2, "w");
+    FILE* file = fopen(filepaht2, "wb+");
 
     return file;
 }
@@ -205,6 +205,7 @@ void record_text_section(FILE *output)
 {
     uint32_t cur_addr = MEM_TEXT_START;
     char line[1024];
+    const char* delimeter = ", \t\n";
 
     /* Point to text_seg stream */
     rewind(text_seg);
@@ -265,13 +266,24 @@ void record_data_section(FILE *output)
 {
     uint32_t cur_addr = MEM_DATA_START;
     char line[1024];
+    const char* delimeter = ", \t\n";
 
     /* Point to data segment stream */
     rewind(data_seg);
 
     /* Print .data section */
     while (fgets(line, 1024, data_seg) != NULL) {
-        /* blank */
+        /* black */
+        char *temp;
+        char _line[1024] = {0};
+        strcpy(_line, line);
+        temp = strtok(_line, delimeter);
+
+        char *ptr = strtok(NULL, delimeter);
+        long int x = strtol(ptr, NULL, 0);
+        
+        fprintf(output, "%s\n", num_to_bits(x, 32));
+
 #if DEBUG
         printf("0x%08x: ", cur_addr);
         printf("%s", line);
@@ -296,6 +308,8 @@ void make_binary_file(FILE *output)
 
     /* Print text section size and data section size */
     /* blank */
+    fprintf(output, "%s\n", num_to_bits(text_section_size, 32));
+    fprintf(output, "%s\n", num_to_bits(data_section_size, 32));
 
     /* Print .text section */
     record_text_section(output);
@@ -355,7 +369,6 @@ void make_symbol_table(FILE *input)
                 add_symbol(temp, address);
                 continue;
             } else {
-
                 if (strcmp(temp, "la") == 0) {
                     char *ptr1 = strtok(NULL, delimeter);
                     char *ptr2 = strtok(NULL, delimeter);
@@ -378,6 +391,8 @@ void make_symbol_table(FILE *input)
 
                     if(strcmp(str2, "0000") != 0) {
                         fprintf(text_seg, "ori\t%s\t%s\t%s\n", ptr1, ptr1, str2);
+                        text_section_size += BYTES_PER_WORD;
+                        address += BYTES_PER_WORD;
                     }
 
                 } else {
@@ -395,7 +410,7 @@ void make_symbol_table(FILE *input)
                     }
 
                     fprintf(text_seg, "\n");
-                    
+
                 }
 
             }
