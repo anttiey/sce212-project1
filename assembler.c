@@ -279,19 +279,51 @@ void record_text_section(FILE *output)
             case 'R':
                 /* blank */
                 strcpy(op , inst_list[idx].op);
-                temp = strtok(NULL, delimeter);
-                rd = strtol(get_num_str(temp), NULL, 0);
-                temp = strtok(NULL, delimeter);
-                rs = strtol(get_num_str(temp), NULL, 0);
-                temp = strtok(NULL, delimeter);
-                rt = strtol(get_num_str(temp), NULL, 0);
-                fprintf(output, "%s%s%s%s%s%s",
-                        op, 
-                        num_to_bits(rs,5), 
-                        num_to_bits(rt,5), 
-                        num_to_bits(rd,5),
-                        num_to_bits(0, 5),
-                        inst_list[idx].funct);
+
+                if( is_equals(inst_list[idx].name, "sll") 
+                    || is_equals(inst_list[idx].name, "srl") 
+                ) {
+
+                    // SLL rd,rt,sa
+                    temp = strtok(NULL, delimeter);
+                    rd = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    rt = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    shamt = strtol(get_num_str(temp), NULL, 0);
+
+                    // 000000	rs	rt	rd	sa	000000
+
+                    fprintf(output, "%s%s%s%s%s%s",
+                            op, 
+                            num_to_bits(0,5), 
+                            num_to_bits(rt,5), 
+                            num_to_bits(rd,5),
+                            num_to_bits(shamt, 5),
+                            inst_list[idx].funct);
+
+                } else {
+
+                    temp = strtok(NULL, delimeter);
+                    rd = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    rs = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    rt = strtol(get_num_str(temp), NULL, 0);
+
+                    fprintf(output, "%s%s%s%s%s%s",
+                            op, 
+                            num_to_bits(rs,5), 
+                            num_to_bits(rt,5), 
+                            num_to_bits(rd,5),
+                            num_to_bits(0, 5),
+                            inst_list[idx].funct);
+
+                }
 
 #if DEBUG
                 printf("op:%s rs:$%d rt:$%d rd:$%d shamt:%d funct:%s\n",
@@ -317,7 +349,7 @@ void record_text_section(FILE *output)
                     num_to_bits(rt, 5),
                     num_to_bits(imm, 16));
 
-                } else if (is_equals(inst_list[idx].name, "bne"))  {
+                } else if (is_equals(inst_list[idx].name, "bne") || is_equals(inst_list[idx].name, "beq"))  {
 
                     // BNE rs,rt,offset(lab2)
 
@@ -327,13 +359,18 @@ void record_text_section(FILE *output)
                     temp = strtok(NULL, delimeter);
                     rt = strtol(get_num_str(temp), NULL, 0);
 
+                    // offset or symtabl label
                     temp = strtok(NULL, delimeter);
-                    imm = strtol(temp, NULL, 0);
+
+                    int sym_idx = search_symbol(temp);
+                    if (sym_idx>-1) {
+                        imm = SYMBOL_TABLE[sym_idx].address;
+                    }
+                    else {
+                        imm = strtol(temp, NULL, 0);
+                    }
 
                     int offset = (imm - (cur_addr + 4)) / 4;
-#if DEBUG
-                    printf("I: offset=%d\n", offset);
-#endif
 
                     fprintf(output, "%s%s%s%s", 
                     op,
