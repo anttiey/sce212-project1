@@ -102,7 +102,40 @@ FILE* tmpfile_2(const char*filename, char ext) {
     return file;
 }
 
-// 
+int find_instruction(const char *cmd) {
+
+    for(int i = 0; i < INST_LIST_LEN; i++) {
+        if (strcmp(inst_list[i].name, cmd) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+char *get_num_str(const char *str) {
+    char *result = malloc(64);
+
+    bzero(result, 64);
+
+    char *p = (char *)str;
+    char *q = result;
+
+    for( ; *p ; p++) {
+        if ( *p == '$' ) {
+            continue;
+        }
+
+        if ( *p == ',' ) {
+            continue;
+        }
+
+        *q = *p;
+        q++;
+    }
+
+    return result;
+}
 
 /******************************************************
  * Function Declaration
@@ -159,6 +192,12 @@ int search_symbol(const char *label) {
 symbol_t get_symbol(const int index) {
     return SYMBOL_TABLE[index];
 }
+
+
+int is_equals(const char *str1, const char* str2) {
+    return strcmp(str1, str2) == 0;
+}
+
 
 /* Change file extension from ".s" to ".o" */
 char* change_file_ext(char *str) {
@@ -226,10 +265,33 @@ void record_text_section(FILE *output)
 #endif
         /* Find the instruction type that matches the line */
         /* blank */
+        char *temp;
+        char _line[1024] = {0};
+        strcpy(_line, line);
+        temp = strtok(_line, delimeter);
+
+        idx = find_instruction(temp);
+        if(idx > -1) {
+            type = inst_list[idx].type;
+        }
 
         switch (type) {
             case 'R':
                 /* blank */
+                strcpy(op , inst_list[idx].op);
+                temp = strtok(NULL, delimeter);
+                rd = strtol(get_num_str(temp), NULL, 0);
+                temp = strtok(NULL, delimeter);
+                rs = strtol(get_num_str(temp), NULL, 0);
+                temp = strtok(NULL, delimeter);
+                rt = strtol(get_num_str(temp), NULL, 0);
+                fprintf(output, "%s%s%s%s%s%s",
+                        op, 
+                        num_to_bits(rs,5), 
+                        num_to_bits(rt,5), 
+                        num_to_bits(rd,5),
+                        num_to_bits(0, 5),
+                        inst_list[idx].funct);
 
 #if DEBUG
                 printf("op:%s rs:$%d rt:$%d rd:$%d shamt:%d funct:%s\n",
@@ -239,6 +301,77 @@ void record_text_section(FILE *output)
 
             case 'I':
                 /* blank */
+                strcpy(op , inst_list[idx].op);
+
+                if(is_equals(inst_list[idx].name, "lui")) {
+
+                    temp = strtok(NULL, delimeter);
+                    rt = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    imm = strtol(temp, NULL, 0);
+
+                    fprintf(output, "%s%s%s%s", 
+                    op,
+                    num_to_bits(0, 5),
+                    num_to_bits(rt, 5),
+                    num_to_bits(imm, 16));
+
+                } else if (is_equals(inst_list[idx].name, "bne"))  {
+
+                    // BNE rs,rt,offset(lab2)
+
+                    temp = strtok(NULL, delimeter);
+                    rs = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    rt = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    imm = strtol(temp, NULL, 0);
+
+                    int offset = (imm - (cur_addr + 4)) / 4;
+#if DEBUG
+                    printf("I: offset=%d\n", offset);
+#endif
+
+                    fprintf(output, "%s%s%s%s", 
+                    op,
+                    num_to_bits(rs, 5),
+                    num_to_bits(rt, 5),
+                    num_to_bits(offset, 16));
+
+                    
+                } else {
+
+                    temp = strtok(NULL, delimeter);
+                    rt = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    rs = strtol(get_num_str(temp), NULL, 0);
+
+                    temp = strtok(NULL, delimeter);
+                    imm = strtol(temp, NULL, 0);
+
+                    fprintf(output, "%s%s%s%s", 
+                    op,
+                    num_to_bits(rs, 5),
+                    num_to_bits(rt, 5),
+                    num_to_bits(imm, 16));
+
+                }
+
+                /*
+                if(temp != NULL) {
+                    imm = strtol(temp, NULL, 0);
+                }
+
+                fprintf(output, "%s%s%s%s", 
+                    op,
+                    num_to_bits(rs, 5),
+                    num_to_bits(rt, 5),
+                    num_to_bits(imm, 16)); */
+
 #if DEBUG
                 printf("op:%s rs:$%d rt:$%d imm:0x%x\n",
                         op, rs, rt, imm);
@@ -247,6 +380,12 @@ void record_text_section(FILE *output)
 
             case 'J':
                 /* blank */
+                strcpy(op, inst_list[idx].op);
+                temp = strtok(NULL, delimeter);
+                addr = strtol(temp, NULL, 0);
+                
+                fprintf(output, "%s%s", op, num_to_bits((addr >> 2), 26));
+
 #if DEBUG
                 printf("op:%s addr:%i\n", op, addr);
 #endif
@@ -281,7 +420,7 @@ void record_data_section(FILE *output)
 
         char *ptr = strtok(NULL, delimeter);
         long int x = strtol(ptr, NULL, 0);
-        
+
         fprintf(output, "%s\n", num_to_bits(x, 32));
 
 #if DEBUG
@@ -387,10 +526,10 @@ void make_symbol_table(FILE *input)
 
                     }
                     
-                    fprintf(text_seg, "lui\t%s\t%s\n", ptr1, str1);
+                    fprintf(text_seg, "lui\t%s\t0x%s\n", ptr1, str1);
 
                     if(strcmp(str2, "0000") != 0) {
-                        fprintf(text_seg, "ori\t%s\t%s\t%s\n", ptr1, ptr1, str2);
+                        fprintf(text_seg, "ori\t%s\t%s\t0x%s\n", ptr1, ptr1, str2);
                         text_section_size += BYTES_PER_WORD;
                         address += BYTES_PER_WORD;
                     }
