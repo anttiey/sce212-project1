@@ -9,7 +9,7 @@
  * For debug option. If you want to debug, set 1.
  * If not, set 0.
  */
-#define DEBUG 1
+#define DEBUG 0
 
 #define MAX_SYMBOL_TABLE_SIZE   1024
 #define MEM_TEXT_START          0x00400000
@@ -73,7 +73,6 @@ uint32_t symbol_table_cur_index = 0; // For indexing of symbol table
 /* Temporary file stream pointers */
 FILE *data_seg;
 FILE *text_seg;
-FILE *sym_file;
 
 /* Size of each section */
 uint32_t data_section_size = 0;
@@ -90,16 +89,6 @@ char* change_file_ext_2(char *str, char ext) {
     str[strlen(str) - 1] = ext;
 
     return str;
-}
-
-FILE* tmpfile_2(const char*filename, char ext) {
-    char* filepath1 = strdup(filename);
-
-    char* filepaht2 = change_file_ext_2 (filepath1, ext);
-
-    FILE* file = fopen(filepaht2, "wb+");
-
-    return file;
 }
 
 int find_instruction(const char *cmd) {
@@ -173,7 +162,6 @@ void add_symbol(const char *name, uint32_t address) {
     symbol.address = address;
 
     symbol_table_add_entry(symbol);
-    fprintf(sym_file, "%s\t0x%08x\n", name, address);
 }
 
 /* Search symbol */
@@ -186,7 +174,7 @@ int search_symbol(const char *label) {
         }
     }
 
-    return -1; // not found
+    return -1;
 }
 
 symbol_t get_symbol(const int index) {
@@ -198,8 +186,8 @@ int is_equals(const char *str1, const char* str2) {
     return strcmp(str1, str2) == 0;
 }
 
-// 2($1) -> 2
 char* get_outer(const char *str) {
+
     char *result = strdup(str);
 
     char *ptr = strchr(result, '(');
@@ -210,7 +198,6 @@ char* get_outer(const char *str) {
     return result;
 }
 
-// 2($1) -> $1
 char *get_inner(const char *str) {
 
     char *result = malloc(64);
@@ -301,8 +288,9 @@ void record_text_section(FILE *output)
         }
 
         switch (type) {
+
             case 'R':
-                /* blank */
+
                 strcpy(op , inst_list[idx].op);
 
                 if( is_equals(inst_list[idx].name, "sll") 
@@ -365,7 +353,7 @@ void record_text_section(FILE *output)
                 break;
 
             case 'I':
-                /* blank */
+
                 strcpy(op , inst_list[idx].op);
 
                 if(is_equals(inst_list[idx].name, "lui")) {
@@ -384,17 +372,13 @@ void record_text_section(FILE *output)
 
                 } else if (is_equals(inst_list[idx].name, "bne") || is_equals(inst_list[idx].name, "beq"))  {
 
-                    // BNE rs,rt,offset(lab2)
-
                     temp = strtok(NULL, delimeter);
                     rs = strtol(get_num_str(temp), NULL, 0);
 
                     temp = strtok(NULL, delimeter);
                     rt = strtol(get_num_str(temp), NULL, 0);
 
-                    // offset or symbol label
                     temp = strtok(NULL, delimeter);
-
                     int sym_idx = search_symbol(temp);
                     if (sym_idx>-1) {
                         imm = SYMBOL_TABLE[sym_idx].address;
@@ -455,6 +439,7 @@ void record_text_section(FILE *output)
                 break;
 
             case 'J':
+            
                 strcpy(op, inst_list[idx].op);
 
                 temp = strtok(NULL, delimeter);
@@ -539,6 +524,7 @@ void make_binary_file(FILE *output)
 }
 
 /* Fill the blanks */
+
 void make_symbol_table(FILE *input)
 {
     char line[1024] = {0};
@@ -557,13 +543,13 @@ void make_symbol_table(FILE *input)
         if (!strcmp(temp, ".data")) {
             cur_section = DATA;
             address = MEM_DATA_START;
-            //data_seg = tmpfile();
+            data_seg = tmpfile();
             continue;
         }
         else if (!strcmp(temp, ".text")) {
             cur_section = TEXT;
             address = MEM_TEXT_START;
-            //text_seg = tmpfile();
+            text_seg = tmpfile();
             continue;
         }
 
@@ -707,10 +693,6 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    sym_file = tmpfile_2(argv[1], '1');
-    data_seg = tmpfile_2(argv[1], '2');
-    text_seg = tmpfile_2(argv[1], '3');
-
     /******************************************************
      *  Let's complete the below functions!
      *
@@ -725,10 +707,6 @@ int main(int argc, char* argv[])
 
     fclose(input);
     fclose(output);
-
-    fclose(sym_file);
-    fclose(data_seg);
-    fclose(text_seg);
 
     return 0;
 }
